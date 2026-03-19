@@ -3,6 +3,9 @@ import hashlib
 import os
 import time
 from datetime import datetime, timezone
+from pathlib import Path
+
+BASE_DIR = Path(__file__).parent
 
 import feedparser
 import httpx
@@ -250,8 +253,8 @@ async def force_refresh():
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    with open("static/index.html") as f:
+    with open(BASE_DIR / "static" / "index.html") as f:
         return f.read()
 
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
