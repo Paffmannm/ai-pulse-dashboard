@@ -1,11 +1,11 @@
 import asyncio
 import hashlib
 import os
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-
-BASE_DIR = Path(__file__).parent
+from urllib.parse import urlparse
 
 import feedparser
 import httpx
@@ -15,16 +15,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+BASE_DIR = Path(__file__).parent
+
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 anthropic_client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
 
-# In-memory cache
 article_cache: dict = {}
 cache_meta = {"last_updated": 0.0, "is_refreshing": False}
-
-CACHE_TTL = 900  # 15 minutes
+CACHE_TTL = 900
 
 SEARCH_QUERIES = [
     "AI avatars",
@@ -41,8 +41,14 @@ def make_id(url: str) -> str:
     return hashlib.md5(url.encode()).hexdigest()[:10]
 
 
+def get_domain(url: str) -> str:
+    try:
+        return urlparse(url).netloc.replace("www.", "")
+    except Exception:
+        return ""
+
+
 def parse_date(raw: str) -> str:
-    """Try to return an ISO date string."""
     if not raw:
         return ""
     try:
@@ -62,57 +68,26 @@ async def fetch_google_news(query: str) -> list:
             articles = []
             for entry in feed.entries[:8]:
                 source = (entry.get("source") or {}).get("title", "News")
-                excerpt = entry.get("summary", "") or ""
-                # Strip HTML tags from excerpt
-                import re
-                excerpt = re.sub(r"<[^>]+>", "", excerpt)[:600]
+                excerpt = re.sub(r"<[^>]+>", "", entry.get("summary", "") or "")[:600]
+                # Try to resolve the actual article URL for favicon
+                article_url = entry.link
                 articles.append({
                     "id": make_id(entry.link),
                     "title": entry.title,
                     "author": entry.get("author", source),
                     "source": source,
-                    "url": entry.link,
+                    "url": article_url,
+                    "domain": get_domain(article_url),
                     "published": parse_date(entry.get("published", "")),
                     "excerpt": excerpt,
                     "summary": None,
+                    "tweet": None,
                     "type": "news",
                     "query": query,
                 })
             return articles
     except Exception as e:
         print(f"[Google News] '{query}': {e}")
-        return []
-
-
-async def fetch_reddit(query: str) -> list:
-    encoded = query.replace(" ", "+")
-    url = f"https://www.reddit.com/search.json?q={encoded}&sort=new&limit=15&type=link&t=week"
-    headers = {"User-Agent": "AIPulseDashboard/1.0"}
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(url, headers=headers)
-            data = resp.json()
-            articles = []
-            for post in data["data"]["children"]:
-                p = post["data"]
-                link = p.get("url", "")
-                if not link or "reddit.com" in link:
-                    continue
-                articles.append({
-                    "id": make_id(link),
-                    "title": p["title"],
-                    "author": f"u/{p['author']}",
-                    "source": f"r/{p['subreddit']}",
-                    "url": link,
-                    "published": datetime.fromtimestamp(p["created_utc"], tz=timezone.utc).isoformat(),
-                    "excerpt": (p.get("selftext") or "")[:500],
-                    "summary": None,
-                    "type": "reddit",
-                    "query": query,
-                })
-            return articles[:6]
-    except Exception as e:
-        print(f"[Reddit] '{query}': {e}")
         return []
 
 
@@ -127,15 +102,18 @@ async def fetch_hackernews(query: str) -> list:
             for hit in data["hits"][:6]:
                 if not hit.get("url"):
                     continue
+                article_url = hit["url"]
                 articles.append({
-                    "id": make_id(hit["url"]),
+                    "id": make_id(article_url),
                     "title": hit["title"],
                     "author": hit.get("author", "Unknown"),
                     "source": "Hacker News",
-                    "url": hit["url"],
+                    "url": article_url,
+                    "domain": get_domain(article_url),
                     "published": hit.get("created_at", ""),
                     "excerpt": "",
                     "summary": None,
+                    "tweet": None,
                     "type": "hackernews",
                     "query": query,
                 })
@@ -145,13 +123,12 @@ async def fetch_hackernews(query: str) -> list:
         return []
 
 
-def summarize_articles(articles: list) -> list:
-    """Batch summarize articles that don't yet have summaries using Claude Haiku."""
+def generate_summaries_and_tweets(articles: list) -> list:
+    """Batch generate summaries AND tweet-style posts for new articles."""
     needs = [a for a in articles if a.get("summary") is None]
     if not needs:
         return articles
 
-    # Build batch prompt
     items = ""
     for i, a in enumerate(needs):
         items += f"\nARTICLE {i+1}:\nTitle: {a['title']}\nSource: {a['source']}\nExcerpt: {a.get('excerpt') or 'N/A'}\n"
@@ -159,33 +136,36 @@ def summarize_articles(articles: list) -> list:
     try:
         msg = anthropic_client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=3000,
+            max_tokens=5000,
             messages=[{
                 "role": "user",
                 "content": (
-                    "For each article below, write a 2-sentence summary covering what the piece is about and why it matters. "
-                    "Be specific. Format exactly as:\n"
-                    "ARTICLE 1: [summary]\nARTICLE 2: [summary]\netc.\n\n"
+                    "For each article, produce TWO things:\n"
+                    "1. A 2-sentence summary of what the piece covers and why it matters.\n"
+                    "2. A tweet (max 240 chars, punchy, no hashtags, written as a media observer reacting to the story).\n\n"
+                    "Format EXACTLY as:\n"
+                    "ARTICLE 1:\nSUMMARY: [summary]\nTWEET: [tweet]\n\n"
+                    "ARTICLE 2:\nSUMMARY: [summary]\nTWEET: [tweet]\n\netc.\n\n"
                     + items
                 )
             }]
         )
         text = msg.content[0].text.strip()
 
-        import re
-        # Parse responses like "ARTICLE 1: ..."
-        summaries = {}
-        for match in re.finditer(r"ARTICLE\s+(\d+):\s*(.+?)(?=ARTICLE\s+\d+:|$)", text, re.DOTALL):
-            idx = int(match.group(1)) - 1
-            summaries[idx] = match.group(2).strip()
-
-        for i, a in enumerate(needs):
-            a["summary"] = summaries.get(i) or a.get("excerpt") or "No summary available."
+        # Parse each article block
+        blocks = re.split(r"ARTICLE\s+\d+:", text)
+        for i, block in enumerate(blocks[1:]):  # skip first empty split
+            summary_match = re.search(r"SUMMARY:\s*(.+?)(?=TWEET:|$)", block, re.DOTALL)
+            tweet_match = re.search(r"TWEET:\s*(.+?)$", block, re.DOTALL)
+            if i < len(needs):
+                needs[i]["summary"] = summary_match.group(1).strip() if summary_match else needs[i].get("excerpt", "No summary.")
+                needs[i]["tweet"] = tweet_match.group(1).strip() if tweet_match else needs[i]["title"]
 
     except Exception as e:
-        print(f"[Summarizer] {e}")
+        print(f"[Claude] {e}")
         for a in needs:
             a["summary"] = a.get("excerpt") or "Summary unavailable."
+            a["tweet"] = a["title"][:240]
 
     return articles
 
@@ -196,7 +176,6 @@ async def refresh_articles():
         tasks = []
         for query in SEARCH_QUERIES:
             tasks.append(fetch_google_news(query))
-            tasks.append(fetch_reddit(query))
             tasks.append(fetch_hackernews(query))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -207,13 +186,14 @@ async def refresh_articles():
             if isinstance(result, list):
                 for a in result:
                     if a["id"] not in seen:
-                        # Preserve existing summary from cache
                         if a["id"] in article_cache:
-                            a["summary"] = article_cache[a["id"]].get("summary")
+                            cached = article_cache[a["id"]]
+                            a["summary"] = cached.get("summary")
+                            a["tweet"] = cached.get("tweet")
                         seen.add(a["id"])
                         fresh.append(a)
 
-        fresh = summarize_articles(fresh)
+        fresh = generate_summaries_and_tweets(fresh)
 
         for a in fresh:
             article_cache[a["id"]] = a
@@ -230,10 +210,8 @@ async def get_articles(background_tasks: BackgroundTasks, force: bool = False):
 
     if stale and not cache_meta["is_refreshing"]:
         if not article_cache:
-            # First load — wait for data
             await refresh_articles()
         else:
-            # Refresh in background, return stale data immediately
             background_tasks.add_task(refresh_articles)
 
     articles = sorted(article_cache.values(), key=lambda x: x.get("published", ""), reverse=True)

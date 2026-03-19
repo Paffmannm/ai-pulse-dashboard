@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Pulse — AI Avatars & Companions Dashboard</title>
+  <title>AI Pulse — AI Avatars & Companions</title>
   <style>
     :root {
       --bg: #0c0c10;
@@ -11,12 +11,16 @@
       --surface2: #1e1e28;
       --border: #2a2a38;
       --text: #e4e4f0;
-      --muted: #7878a0;
+      --muted: #6868a0;
       --accent: #7c6af7;
       --blue: #4fa8e8;
-      --orange: #e8824f;
       --yellow: #f5a623;
       --green: #4fe8a0;
+      --tweet-bg: #15202b;
+      --tweet-border: #2f3336;
+      --tweet-text: #e7e9ea;
+      --tweet-muted: #71767b;
+      --tweet-blue: #1d9bf0;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -32,72 +36,40 @@
     header {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 18px 32px;
+      padding: 16px 32px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       position: sticky;
       top: 0;
       z-index: 200;
-      backdrop-filter: blur(10px);
     }
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+    .brand { display: flex; align-items: center; gap: 12px; }
 
     .brand-icon {
-      width: 38px;
-      height: 38px;
+      width: 36px; height: 36px;
       background: linear-gradient(135deg, var(--accent), var(--blue));
       border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
     }
 
-    .brand-text h1 {
-      font-size: 17px;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-    }
+    .brand h1 { font-size: 17px; font-weight: 700; }
+    .brand p  { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
-    .brand-text p {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 1px;
-    }
+    .header-right { display: flex; align-items: center; gap: 14px; }
 
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%;
       background: var(--green);
       box-shadow: 0 0 6px var(--green);
     }
+    .live-dot.loading { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); animation: pulse 1s infinite; }
 
-    .status-dot.loading {
-      background: var(--yellow);
-      box-shadow: 0 0 6px var(--yellow);
-      animation: pulse 1s infinite;
-    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.4 } }
-
-    .last-updated {
-      font-size: 12px;
-      color: var(--muted);
-    }
+    .last-upd { font-size: 12px; color: var(--muted); }
 
     .refresh-btn {
       background: var(--surface2);
@@ -108,12 +80,9 @@
       cursor: pointer;
       font-size: 13px;
       font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      display: flex; align-items: center; gap: 6px;
       transition: background 0.15s;
     }
-
     .refresh-btn:hover:not(:disabled) { background: var(--border); }
     .refresh-btn:disabled { opacity: 0.5; cursor: default; }
 
@@ -123,201 +92,158 @@
 
     /* ── TOOLBAR ── */
     .toolbar {
-      padding: 18px 32px 0;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
+      padding: 16px 32px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
     }
 
-    .filter-label { font-size: 12px; color: var(--muted); }
+    .filter-lbl { font-size: 12px; color: var(--muted); margin-right: 4px; }
 
     .pill {
       background: var(--surface);
       border: 1px solid var(--border);
       color: var(--muted);
-      padding: 6px 14px;
+      padding: 5px 14px;
       border-radius: 20px;
       cursor: pointer;
       font-size: 12px;
       font-weight: 500;
       transition: all 0.15s;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      display: flex; align-items: center; gap: 6px;
     }
-
     .pill:hover { border-color: var(--accent); color: var(--text); }
     .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .pill .cnt { background: rgba(0,0,0,0.25); padding: 1px 7px; border-radius: 10px; font-size: 11px; }
 
-    .pill .cnt {
-      background: rgba(0,0,0,0.25);
-      padding: 1px 7px;
-      border-radius: 10px;
-      font-size: 11px;
-    }
-
-    .divider { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
-
-    .search-wrap {
-      margin-left: auto;
-      position: relative;
-    }
-
+    .search-wrap { margin-left: auto; position: relative; }
     .search-wrap input {
       background: var(--surface);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 7px 14px 7px 34px;
+      padding: 7px 14px 7px 32px;
       border-radius: 8px;
       font-size: 13px;
-      width: 220px;
+      width: 200px;
       outline: none;
       transition: border-color 0.15s;
     }
-
     .search-wrap input:focus { border-color: var(--accent); }
     .search-wrap input::placeholder { color: var(--muted); }
-
-    .search-icon {
-      position: absolute;
-      left: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--muted);
-      font-size: 14px;
-      pointer-events: none;
-    }
+    .search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 13px; pointer-events: none; }
 
     /* ── STATS ── */
     .stats {
-      padding: 18px 32px 16px;
-      display: flex;
-      gap: 28px;
+      padding: 16px 32px;
+      display: flex; gap: 28px;
+      border-bottom: 1px solid var(--border);
     }
-
     .stat { display: flex; flex-direction: column; gap: 2px; }
-    .stat-val { font-size: 24px; font-weight: 700; }
+    .stat-val { font-size: 22px; font-weight: 700; }
     .stat-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
-    /* ── GRID ── */
-    .grid {
-      padding: 0 32px 40px;
+    /* ── COLUMNS LAYOUT ── */
+    .columns {
+      padding: 24px 32px 48px;
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(370px, 1fr));
-      gap: 16px;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
     }
 
-    /* ── CARD ── */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 11px;
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
-    }
-
-    .card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      border-radius: 14px 14px 0 0;
-    }
-
-    .card.news::before    { background: var(--blue); }
-    .card.reddit::before  { background: var(--orange); }
-    .card.hackernews::before { background: var(--yellow); }
-
-    .card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.4);
-      border-color: rgba(124,106,247,0.4);
-    }
-
-    .card-top {
+    .col-header {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
       gap: 8px;
     }
 
-    .source-chip {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-      min-width: 0;
+    /* ── NEWS CARD ── */
+    .news-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .news-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--blue));
+      border-radius: 14px 14px 0 0;
+    }
+    .news-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+      border-color: rgba(124,106,247,0.4);
     }
 
-    .source-chip .dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
+    .news-source-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .outlet-logo {
+      width: 22px; height: 22px;
+      border-radius: 4px;
+      object-fit: contain;
+      background: var(--surface2);
       flex-shrink: 0;
     }
 
-    .news .dot    { background: var(--blue); }
-    .reddit .dot  { background: var(--orange); }
-    .hackernews .dot { background: var(--yellow); }
+    .outlet-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
-    .source-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .news-time { font-size: 11px; color: var(--muted); white-space: nowrap; }
 
-    .time-ago { font-size: 11px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
-
-    .card-title {
+    .news-title {
       font-size: 14px;
       font-weight: 600;
       line-height: 1.45;
+      margin-bottom: 8px;
       color: var(--text);
     }
 
-    .card-author {
+    .news-author {
       font-size: 12px;
       color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 5px;
+      margin-bottom: 10px;
     }
 
-    .card-summary {
+    .news-summary {
       font-size: 13px;
-      color: #a0a0be;
+      color: #9898bc;
       line-height: 1.65;
-      flex: 1;
+      margin-bottom: 12px;
     }
 
-    .card-summary.loading-text {
-      color: var(--muted);
-      font-style: italic;
-    }
-
-    .card-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .news-footer {
+      display: flex; align-items: center; justify-content: space-between;
       padding-top: 10px;
       border-top: 1px solid var(--border);
-      margin-top: auto;
     }
 
     .topic-tag {
-      background: rgba(124,106,247,0.15);
+      background: rgba(124,106,247,0.12);
       color: var(--accent);
       padding: 3px 10px;
       border-radius: 12px;
       font-size: 11px;
       font-weight: 500;
-      max-width: 180px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
     .read-link {
@@ -325,25 +251,140 @@
       text-decoration: none;
       font-size: 12px;
       font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 4px;
       transition: color 0.15s;
+    }
+    .read-link:hover { color: #fff; }
+
+    /* ── TWEET CARD ── */
+    .tweet-card {
+      background: var(--tweet-bg);
+      border: 1px solid var(--tweet-border);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 14px;
+      transition: background 0.15s;
+      cursor: pointer;
+    }
+    .tweet-card:hover { background: #1a2836; }
+
+    .tweet-header {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .tweet-avatar {
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .tweet-avatar img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    .tweet-avatar-fallback {
+      font-size: 18px;
+    }
+
+    .tweet-user { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+
+    .tweet-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--tweet-text);
+      display: flex; align-items: center; gap: 4px;
+    }
+
+    .tweet-verified {
+      color: var(--tweet-blue);
+      font-size: 14px;
+    }
+
+    .tweet-handle {
+      font-size: 13px;
+      color: var(--tweet-muted);
+    }
+
+    .tweet-timestamp {
+      font-size: 13px;
+      color: var(--tweet-muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .tweet-body {
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--tweet-text);
+      margin-bottom: 12px;
+      word-break: break-word;
+    }
+
+    .tweet-link-preview {
+      border: 1px solid var(--tweet-border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      text-decoration: none;
+      display: block;
+      transition: background 0.15s;
+    }
+    .tweet-link-preview:hover { background: rgba(255,255,255,0.03); }
+
+    .tweet-link-meta {
+      padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .tweet-link-logo {
+      width: 18px; height: 18px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      background: var(--surface2);
+    }
+
+    .tweet-link-title {
+      font-size: 13px;
+      color: var(--tweet-text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .tweet-link-domain {
+      font-size: 12px;
+      color: var(--tweet-muted);
       white-space: nowrap;
     }
 
-    .read-link:hover { color: #fff; }
+    .tweet-actions {
+      display: flex; align-items: center; gap: 24px;
+      color: var(--tweet-muted);
+      font-size: 13px;
+    }
 
-    /* ── EMPTY / LOADING STATES ── */
+    .tweet-action {
+      display: flex; align-items: center; gap: 6px;
+      cursor: pointer;
+      transition: color 0.15s;
+      user-select: none;
+    }
+    .tweet-action:hover { color: var(--tweet-blue); }
+    .tweet-action.like:hover { color: #f91880; }
+    .tweet-action.retweet:hover { color: #00ba7c; }
+
+    /* ── EMPTY / LOADING ── */
     .state-box {
       grid-column: 1 / -1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 80px 32px;
-      gap: 16px;
-      color: var(--muted);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 80px; gap: 16px; color: var(--muted);
     }
 
     .spinner {
@@ -354,15 +395,11 @@
       animation: spin 0.8s linear infinite;
     }
 
-    .state-box p { font-size: 14px; }
-
-    /* ── RESPONSIVE ── */
-    @media (max-width: 680px) {
-      header { padding: 14px 16px; }
-      .toolbar, .stats, .grid { padding-left: 16px; padding-right: 16px; }
-      .grid { grid-template-columns: 1fr; }
+    @media (max-width: 800px) {
+      header { padding: 12px 16px; }
+      .toolbar, .stats, .columns { padding-left: 16px; padding-right: 16px; }
+      .columns { grid-template-columns: 1fr; }
       .search-wrap { display: none; }
-      .brand-text p { display: none; }
     }
   </style>
 </head>
@@ -371,14 +408,14 @@
 <header>
   <div class="brand">
     <div class="brand-icon">🤖</div>
-    <div class="brand-text">
+    <div>
       <h1>AI Pulse</h1>
       <p>AI Avatars &amp; Companions Intelligence</p>
     </div>
   </div>
   <div class="header-right">
-    <span class="status-dot" id="statusDot"></span>
-    <span class="last-updated" id="lastUpdated">Loading…</span>
+    <span class="live-dot" id="liveDot"></span>
+    <span class="last-upd" id="lastUpd">Loading…</span>
     <button class="refresh-btn" id="refreshBtn" onclick="doRefresh()">
       <span class="spin" id="refreshIcon">↻</span> Refresh
     </button>
@@ -386,38 +423,27 @@
 </header>
 
 <div class="toolbar">
-  <span class="filter-label">Show:</span>
+  <span class="filter-lbl">Topic:</span>
   <button class="pill active" onclick="setFilter('all',this)">All <span class="cnt" id="c-all">0</span></button>
   <button class="pill" onclick="setFilter('news',this)">📰 News <span class="cnt" id="c-news">0</span></button>
-  <button class="pill" onclick="setFilter('reddit',this)">👾 Reddit <span class="cnt" id="c-reddit">0</span></button>
-  <button class="pill" onclick="setFilter('hackernews',this)">🔶 Hacker News <span class="cnt" id="c-hackernews">0</span></button>
-  <div class="divider"></div>
+  <button class="pill" onclick="setFilter('hackernews',this)">🔶 Hacker News <span class="cnt" id="c-hn">0</span></button>
   <div class="search-wrap">
     <span class="search-icon">🔍</span>
-    <input type="text" id="searchInput" placeholder="Search stories…" oninput="render()" />
+    <input type="text" id="searchInput" placeholder="Search…" oninput="render()" />
   </div>
 </div>
 
-<div class="stats" id="statsBar">
-  <div class="stat">
-    <div class="stat-val" id="s-total">—</div>
-    <div class="stat-lbl">Stories</div>
-  </div>
-  <div class="stat">
-    <div class="stat-val" id="s-sources">—</div>
-    <div class="stat-lbl">Sources</div>
-  </div>
-  <div class="stat">
-    <div class="stat-val" id="s-topics">—</div>
-    <div class="stat-lbl">Topics Tracked</div>
-  </div>
+<div class="stats">
+  <div class="stat"><div class="stat-val" id="s-total">—</div><div class="stat-lbl">Stories</div></div>
+  <div class="stat"><div class="stat-val" id="s-sources">—</div><div class="stat-lbl">Sources</div></div>
+  <div class="stat"><div class="stat-val" id="s-topics">7</div><div class="stat-lbl">Topics Tracked</div></div>
 </div>
 
-<div class="grid" id="grid">
+<div class="columns" id="columns">
   <div class="state-box">
     <div class="spinner"></div>
     <p>Scanning the web for AI content…</p>
-    <p style="font-size:12px">Fetching news, Reddit, Hacker News &amp; generating summaries with Claude</p>
+    <p style="font-size:12px;margin-top:4px">Generating summaries &amp; tweets with Claude — first load takes ~30 seconds</p>
   </div>
 </div>
 
@@ -425,11 +451,15 @@
   let all = [];
   let activeFilter = 'all';
 
-  const TYPE_LABELS = { news:'News', reddit:'Reddit', hackernews:'Hacker News' };
+  // Fake-realistic tweet accounts per source type
+  const ACCOUNTS = {
+    'Hacker News': { name: 'HN Digest', handle: '@hackernewsbot', emoji: '🔶' },
+    default:       { name: 'AI Observer', handle: '@AIWatcherHQ',  emoji: '🤖' },
+  };
 
   function esc(s) {
     if (!s) return '';
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   function timeAgo(iso) {
@@ -437,10 +467,83 @@
     const d = new Date(iso);
     if (isNaN(d)) return '';
     const s = (Date.now() - d) / 1000;
-    if (s < 60) return 'just now';
-    if (s < 3600) return `${Math.floor(s/60)}m ago`;
-    if (s < 86400) return `${Math.floor(s/3600)}h ago`;
-    return `${Math.floor(s/86400)}d ago`;
+    if (s < 60)    return 'just now';
+    if (s < 3600)  return `${Math.floor(s/60)}m`;
+    if (s < 86400) return `${Math.floor(s/3600)}h`;
+    return `${Math.floor(s/86400)}d`;
+  }
+
+  function faviconUrl(domain) {
+    if (!domain) return '';
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+  }
+
+  function randomCounts() {
+    return {
+      replies: Math.floor(Math.random() * 80) + 1,
+      retweets: Math.floor(Math.random() * 300) + 5,
+      likes: Math.floor(Math.random() * 1500) + 20,
+    };
+  }
+
+  function fmtCount(n) {
+    return n >= 1000 ? (n/1000).toFixed(1) + 'K' : n;
+  }
+
+  function newsCardHTML(a) {
+    const favicon = a.domain ? faviconUrl(a.domain) : '';
+    const logoImg = favicon
+      ? `<img class="outlet-logo" src="${esc(favicon)}" onerror="this.style.display='none'" alt="" />`
+      : '';
+    return `
+      <div class="news-card">
+        <div class="news-source-row">
+          ${logoImg}
+          <span class="outlet-name">${esc(a.source)}</span>
+          <span class="news-time">${timeAgo(a.published)}</span>
+        </div>
+        <div class="news-title">${esc(a.title)}</div>
+        <div class="news-author">✍️ ${esc(a.author)}</div>
+        <div class="news-summary">${esc(a.summary || 'Loading summary…')}</div>
+        <div class="news-footer">
+          <span class="topic-tag">${esc(a.query)}</span>
+          <a class="read-link" href="${esc(a.url)}" target="_blank" rel="noopener">Read →</a>
+        </div>
+      </div>`;
+  }
+
+  function tweetCardHTML(a) {
+    const acct = ACCOUNTS[a.source] || ACCOUNTS.default;
+    const favicon = a.domain ? faviconUrl(a.domain) : '';
+    const c = randomCounts();
+    const avatarContent = favicon
+      ? `<img src="${esc(favicon)}" onerror="this.parentElement.innerHTML='<span class=tweet-avatar-fallback>${acct.emoji}</span>'" alt="" />`
+      : `<span class="tweet-avatar-fallback">${acct.emoji}</span>`;
+
+    return `
+      <div class="tweet-card" onclick="window.open('${esc(a.url)}','_blank')">
+        <div class="tweet-header">
+          <div class="tweet-avatar">${avatarContent}</div>
+          <div class="tweet-user">
+            <span class="tweet-name">${esc(acct.name)} <span class="tweet-verified">✓</span></span>
+            <span class="tweet-handle">${esc(acct.handle)}</span>
+          </div>
+          <span class="tweet-timestamp">${timeAgo(a.published)}</span>
+        </div>
+        <div class="tweet-body">${esc(a.tweet || a.title)}</div>
+        <a class="tweet-link-preview" href="${esc(a.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+          <div class="tweet-link-meta">
+            ${favicon ? `<img class="tweet-link-logo" src="${esc(favicon)}" onerror="this.style.display='none'" alt="" />` : ''}
+            <span class="tweet-link-title">${esc(a.title)}</span>
+            <span class="tweet-link-domain">${esc(a.domain)}</span>
+          </div>
+        </a>
+        <div class="tweet-actions">
+          <span class="tweet-action"         >💬 ${fmtCount(c.replies)}</span>
+          <span class="tweet-action retweet" >🔁 ${fmtCount(c.retweets)}</span>
+          <span class="tweet-action like"    >🤍 ${fmtCount(c.likes)}</span>
+        </div>
+      </div>`;
   }
 
   function setFilter(type, btn) {
@@ -454,74 +557,61 @@
     const q = (document.getElementById('searchInput').value || '').toLowerCase();
     const list = all.filter(a => {
       if (activeFilter !== 'all' && a.type !== activeFilter) return false;
-      if (q && !a.title.toLowerCase().includes(q) && !(a.summary||'').toLowerCase().includes(q) && !a.source.toLowerCase().includes(q)) return false;
+      if (q && !a.title.toLowerCase().includes(q) && !(a.summary||'').toLowerCase().includes(q)) return false;
       return true;
     });
 
-    const grid = document.getElementById('grid');
+    const col = document.getElementById('columns');
     if (list.length === 0) {
-      grid.innerHTML = '<div class="state-box"><p>No stories match this filter.</p></div>';
+      col.innerHTML = '<div class="state-box"><p>No stories match this filter.</p></div>';
       return;
     }
 
-    grid.innerHTML = list.map(a => `
-      <div class="card ${esc(a.type)}">
-        <div class="card-top">
-          <span class="source-chip">
-            <span class="dot"></span>
-            <span class="source-name">${esc(a.source)}</span>
-          </span>
-          <span class="time-ago">${timeAgo(a.published)}</span>
-        </div>
-        <div class="card-title">${esc(a.title)}</div>
-        <div class="card-author">✍️ ${esc(a.author)}</div>
-        <div class="card-summary${a.summary ? '' : ' loading-text'}">${esc(a.summary || 'Generating summary…')}</div>
-        <div class="card-footer">
-          <span class="topic-tag">${esc(a.query)}</span>
-          <a class="read-link" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">Read full story →</a>
-        </div>
+    const newsHTML  = list.map(newsCardHTML).join('');
+    const tweetHTML = list.map(tweetCardHTML).join('');
+
+    col.innerHTML = `
+      <div>
+        <div class="col-header">📰 News &amp; Media Coverage</div>
+        ${newsHTML}
       </div>
-    `).join('');
+      <div>
+        <div class="col-header">🐦 Social Buzz</div>
+        ${tweetHTML}
+      </div>`;
   }
 
   function updateCounts() {
-    const n = t => all.filter(a => a.type === t).length;
-    document.getElementById('c-all').textContent = all.length;
-    document.getElementById('c-news').textContent = n('news');
-    document.getElementById('c-reddit').textContent = n('reddit');
-    document.getElementById('c-hackernews').textContent = n('hackernews');
-
-    document.getElementById('s-total').textContent = all.length;
+    document.getElementById('c-all').textContent  = all.length;
+    document.getElementById('c-news').textContent = all.filter(a => a.type==='news').length;
+    document.getElementById('c-hn').textContent   = all.filter(a => a.type==='hackernews').length;
+    document.getElementById('s-total').textContent   = all.length;
     document.getElementById('s-sources').textContent = new Set(all.map(a => a.source)).size;
-    document.getElementById('s-topics').textContent = new Set(all.map(a => a.query)).size;
   }
 
-  async function load(force = false) {
-    const dot = document.getElementById('statusDot');
-    dot.className = 'status-dot loading';
-
+  async function load(force=false) {
+    const dot = document.getElementById('liveDot');
+    dot.className = 'live-dot loading';
     try {
-      const res = await fetch(force ? '/api/articles?force=true' : '/api/articles');
+      const res  = await fetch(force ? '/api/articles?force=true' : '/api/articles');
       const data = await res.json();
       all = data.articles || [];
-
       const ts = data.last_updated
-        ? new Date(data.last_updated * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+        ? new Date(data.last_updated*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
         : '—';
-      document.getElementById('lastUpdated').textContent = `Updated ${ts}`;
-
+      document.getElementById('lastUpd').textContent = `Updated ${ts}`;
       updateCounts();
       render();
-      dot.className = 'status-dot';
-    } catch (e) {
-      document.getElementById('grid').innerHTML =
-        '<div class="state-box"><p>⚠️ Could not load articles. Check your connection.</p></div>';
-      dot.className = 'status-dot';
+      dot.className = 'live-dot';
+    } catch(e) {
+      document.getElementById('columns').innerHTML =
+        '<div class="state-box"><p>⚠️ Could not load articles.</p></div>';
+      dot.className = 'live-dot';
     }
   }
 
   async function doRefresh() {
-    const btn = document.getElementById('refreshBtn');
+    const btn  = document.getElementById('refreshBtn');
     const icon = document.getElementById('refreshIcon');
     btn.disabled = true;
     icon.classList.add('active');
@@ -530,11 +620,8 @@
     icon.classList.remove('active');
   }
 
-  // Initial load
   load();
-
-  // Auto-refresh every 15 min
-  setInterval(() => load(), 15 * 60 * 1000);
+  setInterval(() => load(), 15*60*1000);
 </script>
 </body>
 </html>
