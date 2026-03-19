@@ -423,10 +423,9 @@
 </header>
 
 <div class="toolbar">
-  <span class="filter-lbl">Topic:</span>
+  <span class="filter-lbl">Source:</span>
   <button class="pill active" onclick="setFilter('all',this)">All <span class="cnt" id="c-all">0</span></button>
-  <button class="pill" onclick="setFilter('news',this)">📰 News <span class="cnt" id="c-news">0</span></button>
-  <button class="pill" onclick="setFilter('hackernews',this)">🔶 Hacker News <span class="cnt" id="c-hn">0</span></button>
+  <button class="pill" onclick="setFilter('news',this)">📰 News &amp; Media <span class="cnt" id="c-news">0</span></button>
   <div class="search-wrap">
     <span class="search-icon">🔍</span>
     <input type="text" id="searchInput" placeholder="Search…" oninput="render()" />
@@ -584,7 +583,6 @@
   function updateCounts() {
     document.getElementById('c-all').textContent  = all.length;
     document.getElementById('c-news').textContent = all.filter(a => a.type==='news').length;
-    document.getElementById('c-hn').textContent   = all.filter(a => a.type==='hackernews').length;
     document.getElementById('s-total').textContent   = all.length;
     document.getElementById('s-sources').textContent = new Set(all.map(a => a.source)).size;
   }

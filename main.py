@@ -26,14 +26,29 @@ article_cache: dict = {}
 cache_meta = {"last_updated": 0.0, "is_refreshing": False}
 CACHE_TTL = 900
 
-SEARCH_QUERIES = [
-    "AI avatars",
-    "AI companions",
-    "AI girlfriend app",
-    "virtual AI companion",
-    "AI character companion",
-    "digital human avatar",
-    "AI companionship",
+KEYWORDS = [
+    "ai avatar", "ai companion", "ai girlfriend", "virtual ai", "ai character",
+    "digital human", "ai companionship", "ai friend", "replika", "character.ai",
+    "ai bot", "synthetic media", "ai persona",
+]
+
+# Major outlets with their RSS feeds
+OUTLETS = [
+    ("The New York Times",  "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml"),
+    ("Mashable",            "https://mashable.com/feeds/rss/all"),
+    ("TechCrunch",          "https://techcrunch.com/feed/"),
+    ("The Verge",           "https://www.theverge.com/rss/index.xml"),
+    ("Wired",               "https://www.wired.com/feed/rss"),
+    ("VentureBeat",         "https://venturebeat.com/feed/"),
+    ("Fast Company",        "https://www.fastcompany.com/technology/rss"),
+    ("MIT Tech Review",     "https://www.technologyreview.com/feed/"),
+    ("Engadget",            "https://www.engadget.com/rss.xml"),
+    ("Forbes",              "https://www.forbes.com/innovation/feed2"),
+    ("Business Insider",    "https://feeds.businessinsider.com/custom/all"),
+    ("CNET",                "https://www.cnet.com/rss/news/"),
+    ("Ars Technica",        "https://feeds.arstechnica.com/arstechnica/index"),
+    ("Reuters",             "https://feeds.reuters.com/reuters/technologyNews"),
+    ("The Guardian",        "https://www.theguardian.com/technology/rss"),
 ]
 
 
@@ -58,7 +73,48 @@ def parse_date(raw: str) -> str:
         return raw
 
 
+def is_relevant(title: str, summary: str) -> bool:
+    text = (title + " " + summary).lower()
+    return any(kw in text for kw in KEYWORDS)
+
+
+async def fetch_outlet(name: str, rss_url: str) -> list:
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
+            resp = await client.get(rss_url, headers={"User-Agent": "Mozilla/5.0"})
+            feed = feedparser.parse(resp.text)
+            articles = []
+            for entry in feed.entries[:40]:  # scan up to 40 entries for matches
+                title = entry.get("title", "")
+                excerpt = re.sub(r"<[^>]+>", "", entry.get("summary", "") or "")[:600]
+                if not is_relevant(title, excerpt):
+                    continue
+                url = entry.get("link", "")
+                if not url:
+                    continue
+                author = entry.get("author", name)
+                articles.append({
+                    "id": make_id(url),
+                    "title": title,
+                    "author": author,
+                    "source": name,
+                    "url": url,
+                    "domain": get_domain(url),
+                    "published": parse_date(entry.get("published", "")),
+                    "excerpt": excerpt,
+                    "summary": None,
+                    "tweet": None,
+                    "type": "news",
+                    "query": "AI avatars & companions",
+                })
+            return articles
+    except Exception as e:
+        print(f"[{name}] {e}")
+        return []
+
+
 async def fetch_google_news(query: str) -> list:
+    """Fallback: Google News RSS to catch anything the outlet feeds miss."""
     encoded = query.replace(" ", "+")
     url = f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en"
     try:
@@ -66,13 +122,12 @@ async def fetch_google_news(query: str) -> list:
             resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
             feed = feedparser.parse(resp.text)
             articles = []
-            for entry in feed.entries[:8]:
+            for entry in feed.entries[:10]:
                 source = (entry.get("source") or {}).get("title", "News")
                 excerpt = re.sub(r"<[^>]+>", "", entry.get("summary", "") or "")[:600]
-                # Try to resolve the actual article URL for favicon
                 article_url = entry.link
                 articles.append({
-                    "id": make_id(entry.link),
+                    "id": make_id(article_url),
                     "title": entry.title,
                     "author": entry.get("author", source),
                     "source": source,
@@ -88,38 +143,6 @@ async def fetch_google_news(query: str) -> list:
             return articles
     except Exception as e:
         print(f"[Google News] '{query}': {e}")
-        return []
-
-
-async def fetch_hackernews(query: str) -> list:
-    encoded = query.replace(" ", "+")
-    url = f"https://hn.algolia.com/api/v1/search?query={encoded}&tags=story&hitsPerPage=10"
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(url)
-            data = resp.json()
-            articles = []
-            for hit in data["hits"][:6]:
-                if not hit.get("url"):
-                    continue
-                article_url = hit["url"]
-                articles.append({
-                    "id": make_id(article_url),
-                    "title": hit["title"],
-                    "author": hit.get("author", "Unknown"),
-                    "source": "Hacker News",
-                    "url": article_url,
-                    "domain": get_domain(article_url),
-                    "published": hit.get("created_at", ""),
-                    "excerpt": "",
-                    "summary": None,
-                    "tweet": None,
-                    "type": "hackernews",
-                    "query": query,
-                })
-            return articles
-    except Exception as e:
-        print(f"[HackerNews] '{query}': {e}")
         return []
 
 
@@ -174,9 +197,12 @@ async def refresh_articles():
     cache_meta["is_refreshing"] = True
     try:
         tasks = []
-        for query in SEARCH_QUERIES:
+        # Scrape all major outlets directly
+        for name, rss_url in OUTLETS:
+            tasks.append(fetch_outlet(name, rss_url))
+        # Google News as catch-all
+        for query in ["AI avatars", "AI companions", "AI girlfriend app", "virtual AI companion"]:
             tasks.append(fetch_google_news(query))
-            tasks.append(fetch_hackernews(query))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
